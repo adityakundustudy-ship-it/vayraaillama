@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAYRA AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
+        body { background: #000; color: #fff; font-family: 'Space Grotesk', sans-serif; margin: 0; overflow: hidden; }
+        #particles-js { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+        .glass { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); z-index: 10; }
+        .hidden { display: none !important; }
+        .glow-text { text-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+    </style>
+</head>
+<body class="h-screen flex flex-col items-center p-4">
+    <div id="particles-js"></div>
+
+    <div id="login-wall" class="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-6">
+        <div class="glass p-10 rounded-[3rem] text-center max-w-sm w-full border-blue-500/20">
+            <h1 class="text-5xl font-black italic tracking-tighter mb-2 glow-text">VAYRA</h1>
+            <p class="text-zinc-600 text-[10px] mb-10 tracking-[0.3em] uppercase italic">Neural Link Required</p>
+            <button id="login-btn" onclick="loginWithGoogle()" class="w-full bg-blue-600 hover:bg-white hover:text-black text-white font-bold py-5 rounded-2xl transition-all duration-500 shadow-[0_0_30px_rgba(37,99,235,0.2)]">
+                AUTHENTICATE
+            </button>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden w-full max-w-5xl h-full flex flex-col pt-6 relative z-10">
+        <header class="flex justify-between items-center mb-6 px-6">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter glow-text italic">VAYRA.AI</h1>
+                <div id="user-email" class="text-[9px] text-blue-500/80 uppercase tracking-widest mt-1"></div>
+            </div>
+            <button onclick="logout()" class="text-[9px] bg-zinc-900 border border-zinc-800 px-5 py-2 rounded-full hover:border-red-500 transition-all uppercase tracking-widest">Disconnect</button>
+        </header>
+
+        <main id="chat-box" class="flex-1 glass rounded-[3rem] p-8 overflow-y-auto mb-6 flex flex-col gap-6">
+            <div class="bg-blue-600/5 border border-blue-500/10 p-6 rounded-3xl self-start max-w-[85%] text-sm leading-relaxed italic text-zinc-300">
+                Synchronization complete. I am Vayra. Proceed.
+            </div>
+        </main>
+
+        <div class="relative mb-8 px-2">
+            <input id="user-input" type="text" class="w-full bg-zinc-900/30 glass rounded-2xl p-6 pr-20 focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-white placeholder-zinc-700" placeholder="Type a message...">
+            <button id="send-btn" class="absolute right-6 top-5 bg-blue-600 p-3 rounded-xl">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- KEYS ---
+        const SB_URL = "https://xwdtnknxuyleggfcwszi.supabase.co"; 
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3ZHRua254dXlsZWdnZmN3c3ppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTE2MTIsImV4cCI6MjA5MDI4NzYxMn0.llSLHGvzXXg0Ti3Cls4Tt5ksmHgjSsUHSDDBJyvLzU0"; 
+        const GR_KEY = "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";
+
+        // --- Corrected Supabase Initialization ---
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        async function checkUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) {
+                document.getElementById('login-wall').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('user-email').innerText = `NODE: ${user.email}`;
+            }
+        }
+
+        async function loginWithGoogle() {
+            // DEBUG ALERT: If you see this, the button works!
+            console.log("Starting Auth...");
+            
+            const { error } = await supabaseClient.auth.signInWithOAuth({ 
+                provider: 'google', 
+                options: { redirectTo: window.location.origin } 
+            });
+            
+            if (error) alert("Error: " + error.message);
+        }
+
+        async function logout() { await supabaseClient.auth.signOut(); window.location.reload(); }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const txt = input.value.trim();
+            if (!txt) return;
+            appendMessage('user', txt);
+            input.value = '';
+            
+            try {
+                const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${GR_KEY}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "llama-3.1-8b-instant",
+                        messages: [{ role: "user", content: txt }]
+                    })
+                });
+                const d = await res.json();
+                appendMessage('assistant', d.choices[0].message.content);
+            } catch (e) { appendMessage('assistant', "CONNECTION_ERROR"); }
+        }
+
+        function appendMessage(role, text) {
+            const box = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = role === 'user' ? "bg-blue-600 p-5 rounded-[2rem] self-end max-w-[85%] text-sm" : "bg-zinc-900/40 p-6 rounded-[2rem] self-start max-w-[85%] text-sm";
+            div.innerText = text;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        particlesJS("particles-js", {"particles":{"number":{"value":50},"color":{"value":"#3b82f6"},"opacity":{"value":0.3},"size":{"value":2},"line_linked":{"enable":true,"distance":150,"color":"#3b82f6","opacity":0.1,"width":1},"move":{"enable":true,"speed":1}}});
+
+        document.getElementById('send-btn').onclick = sendMessage;
+        checkUser();
+    </script>
+</body>
+</html>
+
