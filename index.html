@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VAYRA AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
+        body { background: #000; color: #fff; font-family: 'Space Grotesk', sans-serif; margin: 0; overflow: hidden; height: 100vh; }
+        #particles-js { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .hidden { display: none !important; }
+        
+        /* Sidebar slide animation */
+        #sidebar { transition: transform 0.3s ease; z-index: 50; }
+        .sidebar-closed { transform: translateX(-100%); }
+        
+        /* Fix for mobile keyboard pushing things out */
+        .app-container { height: 100dvh; display: flex; flex-direction: column; }
+    </style>
+</head>
+<body>
+    <div id="particles-js"></div>
+
+    <div id="sidebar" class="fixed inset-y-0 left-0 w-64 glass sidebar-closed flex flex-col p-6">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-bold text-blue-400 italic">HISTORY</h2>
+            <button onclick="toggleSidebar()" class="text-zinc-500 text-2xl">&times;</button>
+        </div>
+        <div id="history-list" class="flex-1 overflow-y-auto space-y-3 text-sm text-zinc-400">
+            <p class="italic text-xs opacity-50">No recent sessions found...</p>
+        </div>
+        <button onclick="logout()" class="mt-4 p-3 border border-red-500/30 rounded-xl text-red-500 text-xs font-bold uppercase tracking-widest hover:bg-red-500/10">Logout</button>
+    </div>
+
+    <div id="main-app" class="hidden app-container relative z-10 p-4">
+        <header class="flex justify-between items-center py-2 px-2 h-16">
+            <button onclick="toggleSidebar()" class="p-2 glass rounded-xl">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            </button>
+            <h1 class="text-2xl font-black italic tracking-tighter text-blue-500">VAYRA</h1>
+            <div class="w-10"></div> </header>
+
+        <main id="chat-box" class="flex-1 glass rounded-[2.5rem] p-5 overflow-y-auto my-4 flex flex-col gap-4">
+            <div class="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl self-start max-w-[85%] text-xs leading-relaxed italic">
+                Thought synchronization established. How can Vayra assist you?
+            </div>
+        </main>
+
+        <div class="pb-safe h-20 px-1">
+            <div class="relative flex items-center">
+                <input id="user-input" type="text" 
+                    class="w-full bg-zinc-900/50 glass rounded-2xl p-5 pr-16 focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-white placeholder-zinc-600 text-sm" 
+                    placeholder="Message Vayra...">
+                <button id="send-btn" class="absolute right-3 bg-blue-600 p-3 rounded-xl shadow-lg active:scale-90 transition-transform">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- YOUR KEYS ---
+        const SB_URL = "https://xwdtnknxuyleggfcwszi.supabase.co";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3ZHRua254dXlsZWdnZmN3c3ppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTE2MTIsImV4cCI6MjA5MDI4NzYxMn0.llSLHGvzXXg0Ti3Cls4Tt5ksmHgjSsUHSDDBJyvLzU0";
+        const GR_KEY = "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";
+
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('sidebar-closed');
+        }
+
+        async function checkUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) {
+                document.getElementById('login-wall').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                loadHistory();
+            }
+        }
+
+        // Add history loading logic here (linking to the sidebar)
+        async function loadHistory() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            const { data } = await supabaseClient.from('chat_history').select('*').eq('user_id', user.id).limit(10).order('created_at', {ascending: false});
+            
+            const list = document.getElementById('history-list');
+            if (data && data.length > 0) {
+                list.innerHTML = '';
+                data.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = "p-3 bg-white/5 rounded-lg truncate border border-white/5";
+                    el.innerText = item.content;
+                    list.appendChild(el);
+                });
+            }
+        }
+
+        // (Include your sendMessage, appendMessage, and Particles code from before)
+        
+        checkUser();
+    </script>
+</body>
+</html>
+
